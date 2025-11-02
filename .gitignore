@@ -1,0 +1,45 @@
+## Binaries for the current project
+# Go build binaries
+# Usually, this is the name of your main package or module,
+# often the same as the project directory name.
+# Example: myproject or myproject.exe
+# If your project is a library, you might not have this.
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+
+# Testing
+# Test binary, example: myproject.test
+*.test
+
+## Dependency and Build Caches
+# Go module cache and build cache files
+# This is where Go stores build artifacts and downloaded modules.
+# The 'pkg' directory is created by 'go build'
+/pkg/
+
+# Dependency directories (vendor)
+# Used if you manage dependencies manually (less common since Go Modules)
+/vendor/
+
+## IDE and Editor Files
+# Common IDE/Editor metadata and configuration
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+/out/ # Some IDEs create this for build output
+
+## Operating System and Environment Files
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Other temporary/log files
+*.log
+/tmp/
