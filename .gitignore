@@ -43,3 +43,7 @@ Thumbs.db
 # Other temporary/log files
 *.log
 /tmp/
+
+# storage file
+storage
+/config
