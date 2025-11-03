@@ -23,6 +23,8 @@ func main() {
 	router.HandleFunc("POST /api/tasks", middleware.LogRequest(handlers.CreateTask))
 	router.HandleFunc("GET /api/tasks/", middleware.LogRequest(handlers.GetTask))
 	router.HandleFunc("PATCH /api/tasks/", middleware.LogRequest(handlers.UpdateTask))
+	router.HandleFunc("DELETE /api/tasks/", middleware.LogRequest(handlers.DeleteTask))
+	router.HandleFunc("GET /api/health", middleware.LogRequest(handlers.HealthStatus))
 
 	server := http.Server{
 		Addr:    cfg.Addr,

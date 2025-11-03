@@ -28,12 +28,19 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&task)
 	if errors.Is(err, io.EOF) {
+		logger2.Logger.Println("Error: Empty Body")
 		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "empty body"})
 		return
 	}
 
 	if err != nil {
+		logger2.Logger.Printf("Error: %v", err)
 		response.WriteJson(w, http.StatusBadRequest, err)
+	}
+
+	if task.Description == "" {
+		logger2.Logger.Printf("Error: Description Not Found")
+		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Description is required"})
 	}
 
 	isOwnerId := task.OwnerId != 0
@@ -56,7 +63,6 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	msg := fmt.Sprintf("Task created successfully with task Id %d", taskInc)
 	logger2.Logger.Println(msg)
-	fmt.Println(tasks)
 
 	response.WriteJson(w, http.StatusCreated, map[string]any{"success": true, "message": msg})
 
@@ -76,20 +82,24 @@ func GetTask(w http.ResponseWriter, r *http.Request) {
 	if len(pathId) < 4 {
 		logger2.Logger.Println("Error: Path params not found!!")
 		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		return
 	}
 
 	id, err := strconv.Atoi(pathId[3])
 	if err != nil {
 		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
-
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		return
 	}
 
 	taskData, ok := tasks[id]
 	if !ok {
+		logger2.Logger.Println("Error: Task Id not Found!!")
 		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
 		return
 	}
 
+	logger2.Logger.Printf("Task with id %d return successfully", id)
 	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": taskData})
 }
 
@@ -105,26 +115,34 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	if len(pathId) < 4 {
 		logger2.Logger.Println("Error: Path params not found!!")
 		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		return
 	}
 
 	id, err := strconv.Atoi(pathId[3])
 	if err != nil {
 		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
-
+		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Params can't be empty"})
+		return
 	}
 
 	taskData, ok := tasks[id]
 	if !ok {
+		logger2.Logger.Println("Error: Task Id not found")
 		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
-		if tasks[id].OwnerId != updateFields.OwnerId {
-			response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Owner Id now found !!"})
-		}
 		return
+	} else {
+		if tasks[id].OwnerId != updateFields.OwnerId {
+			logger2.Logger.Println("Error: Unauthorized")
+			response.WriteJson(w, http.StatusUnauthorized, map[string]string{"Error": "Unauthorized"})
+			return
+		}
 	}
 
 	bodyErr := json.NewDecoder(r.Body).Decode(&updateFields)
 	if bodyErr != nil {
+		logger2.Logger.Println("Update fields not found")
 		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "😭 Update Fields Not Found"})
+		return
 	}
 
 	var description string
@@ -151,4 +169,54 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 
 	logger2.Logger.Printf("Task With id %d Successfully Updated\n", taskData.TaskId)
 	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": tasks[id]})
+}
+
+func DeleteTask(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	var deleteFields types.Task
+
+	err := json.NewDecoder(r.Body).Decode(&deleteFields)
+
+	if err != nil {
+		logger2.Logger.Println("Error: Empty data")
+		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Empty Data"})
+		return
+	}
+
+	path := r.URL.Path
+	pathId := strings.Split(path, "/")
+
+	if len(pathId) < 4 {
+		logger2.Logger.Println("Error: Path params not found!!")
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		return
+	}
+
+	id, err := strconv.Atoi(pathId[3])
+	if err != nil {
+		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		return
+	}
+
+	_, ok := tasks[id]
+	if !ok {
+		logger2.Logger.Println("Error: Task Id not Found!!")
+		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
+		return
+	} else {
+		if tasks[id].OwnerId != deleteFields.OwnerId {
+			logger2.Logger.Println("Error: Unauthorized")
+			response.WriteJson(w, http.StatusUnauthorized, map[string]string{"Error": "Unauthorized"})
+			return
+		}
+	}
+
+	delete(tasks, id)
+
+	logger2.Logger.Printf("Task with id %d deleted successfully\n", id)
+	deleteMsg := fmt.Sprintf("Task with Id %d deleted successfully", id)
+	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "message": deleteMsg})
 }
