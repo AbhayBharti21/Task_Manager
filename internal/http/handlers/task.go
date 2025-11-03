@@ -9,6 +9,8 @@ import (
 	"github.com/AbhayBharti21/task-manager/internal/http/utils/response"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -26,16 +28,13 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&task)
 	if errors.Is(err, io.EOF) {
-		response.WriteJson(w, http.StatusBadRequest, fmt.Errorf("empty body"))
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "empty body"})
 		return
 	}
 
 	if err != nil {
 		response.WriteJson(w, http.StatusBadRequest, err)
 	}
-
-	logger2.Logger.Printf("%s %s %s \n", r.RemoteAddr, r.Method, r.URL)
-	fmt.Println(task)
 
 	isOwnerId := task.OwnerId != 0
 
@@ -67,12 +66,29 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	taskInc++
 }
 
-//func GetTask(w http.ResponseWriter, r *http.Request) {
-//	mu.Lock()
-//	defer mu.Unlock()
-//
-//	var url string
-//
-//	r.URL.Parse(url)
-//	fmt.Println(url)
-//}
+func GetTask(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	path := r.URL.Path
+	pathId := strings.Split(path, "/")
+
+	if len(pathId) < 4 {
+		logger2.Logger.Println("Error: Path params not found!!")
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+	}
+
+	id, err := strconv.Atoi(pathId[3])
+	if err != nil {
+		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
+
+	}
+
+	taskData, ok := tasks[id]
+	if !ok {
+		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
+		return
+	}
+
+	response.WriteJson(w, http.StatusOK, map[string]any{"success": "OK", "task": taskData})
+}

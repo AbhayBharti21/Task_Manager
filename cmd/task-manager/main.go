@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/AbhayBharti21/task-manager/internal/config"
 	"github.com/AbhayBharti21/task-manager/internal/http/handlers"
+	"github.com/AbhayBharti21/task-manager/internal/http/middleware"
 	logger2 "github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
 	"log/slog"
 	"net/http"
@@ -19,8 +20,8 @@ func main() {
 		return
 	}
 
-	router.HandleFunc("POST /api/tasks", handlers.CreateTask)
-	//router.HandleFunc("GET /api/tasks/:id", handlers.GetTask)
+	router.HandleFunc("POST /api/tasks", middleware.LogRequest(handlers.CreateTask))
+	router.HandleFunc("GET /api/tasks/", middleware.LogRequest(handlers.GetTask))
 
 	server := http.Server{
 		Addr:    cfg.Addr,
@@ -28,7 +29,6 @@ func main() {
 	}
 
 	slog.Info("Server started at", slog.String("PORT", cfg.HTTPServer.Addr))
-	logger2.Logger.Println()
 
 	serverErr := server.ListenAndServe()
 	if serverErr != nil {
