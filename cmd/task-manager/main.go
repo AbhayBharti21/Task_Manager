@@ -19,7 +19,8 @@ func main() {
 		return
 	}
 
-	router.HandleFunc("GET /api/tasks", handlers.CreateTask)
+	router.HandleFunc("POST /api/tasks", handlers.CreateTask)
+	//router.HandleFunc("GET /api/tasks/:id", handlers.GetTask)
 
 	server := http.Server{
 		Addr:    cfg.Addr,
