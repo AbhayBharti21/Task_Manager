@@ -1,222 +1,169 @@
 package handlers
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/AbhayBharti21/task-manager/internal/http/models"
-	logger2 "github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
-	"github.com/AbhayBharti21/task-manager/internal/http/utils/response"
-	"io"
 	"net/http"
-	"strconv"
-	"strings"
-	"sync"
+
+	types "github.com/AbhayBharti21/task-manager/internal/http/models"
+	"github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
+	"github.com/AbhayBharti21/task-manager/internal/http/utils/path"
+	requestutil "github.com/AbhayBharti21/task-manager/internal/http/utils/request"
+	"github.com/AbhayBharti21/task-manager/internal/http/utils/response"
+	"github.com/AbhayBharti21/task-manager/internal/http/utils/validation"
+	"github.com/AbhayBharti21/task-manager/internal/repository"
 )
 
-var (
-	tasks        = make(map[int]types.Task)
-	ownerInc int = 1
-	taskInc  int = 1
-	mu       sync.Mutex
-)
+var taskRepo *repository.TaskRepository
+
+func init() {
+	taskRepo = repository.NewTaskRepository()
+}
 
 func CreateTask(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	defer mu.Unlock()
 	var task types.Task
 
-	err := json.NewDecoder(r.Body).Decode(&task)
-	if errors.Is(err, io.EOF) {
-		logger2.Logger.Println("Error: Empty Body")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "empty body"})
+	if err := requestutil.DecodeJSON(r, &task); err != nil {
+		if err == requestutil.ErrEmptyBody {
+			logger.Error("Empty request body")
+			response.WriteError(w, http.StatusBadRequest, "empty body")
+			return
+		}
+		logger.Errorf("Error decoding JSON: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid JSON format")
 		return
 	}
 
-	if err != nil {
-		logger2.Logger.Printf("Error: %v", err)
-		response.WriteJson(w, http.StatusBadRequest, err)
+	if err := validation.ValidateTaskCreation(task.Description); err != nil {
+		logger.Errorf("Validation error: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "description is required")
+		return
 	}
 
-	if task.Description == "" {
-		logger2.Logger.Printf("Error: Description Not Found")
-		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Description is required"})
-	}
+	createdTask := taskRepo.Create(task)
+	msg := fmt.Sprintf("Task created successfully with task Id %d", createdTask.TaskId)
+	logger.Infof("Task created successfully with task ID %d", createdTask.TaskId)
 
-	isOwnerId := task.OwnerId != 0
-
-	if isOwnerId {
-		tasks[taskInc] = types.Task{
-			TaskId:      taskInc,
-			OwnerId:     task.OwnerId,
-			Description: task.Description,
-			IsCompleted: false,
-		}
-	} else {
-		tasks[taskInc] = types.Task{
-			TaskId:      taskInc,
-			OwnerId:     ownerInc,
-			Description: task.Description,
-			IsCompleted: false,
-		}
-	}
-
-	msg := fmt.Sprintf("Task created successfully with task Id %d", taskInc)
-	logger2.Logger.Println(msg)
-
-	response.WriteJson(w, http.StatusCreated, map[string]any{"success": true, "message": msg})
-
-	if !isOwnerId {
-		ownerInc++
-	}
-	taskInc++
+	response.WriteSuccess(w, http.StatusCreated, map[string]interface{}{
+		"message": msg,
+		"task":    createdTask,
+	})
 }
 
 func GetTask(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	path := r.URL.Path
-	pathId := strings.Split(path, "/")
-
-	if len(pathId) < 4 {
-		logger2.Logger.Println("Error: Path params not found!!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
-		return
-	}
-
-	id, err := strconv.Atoi(pathId[3])
+	id, err := path.ExtractTaskID(r)
 	if err != nil {
-		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+		logger.Errorf("Error extracting task ID: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid task ID")
 		return
 	}
 
-	taskData, ok := tasks[id]
-	if !ok {
-		logger2.Logger.Println("Error: Task Id not Found!!")
-		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
+	task, err := taskRepo.GetByID(id)
+	if err != nil {
+		if err == repository.ErrTaskNotFound {
+			logger.Warnf("Task ID %d not found", id)
+			response.WriteError(w, http.StatusNotFound, "task not found")
+			return
+		}
+		logger.Errorf("Error getting task: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, "failed to retrieve task")
 		return
 	}
 
-	logger2.Logger.Printf("Task with id %d return successfully", id)
-	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": taskData})
+	logger.Infof("Task with ID %d retrieved successfully", id)
+	response.WriteSuccessWithData(w, http.StatusOK, map[string]interface{}{"task": task})
 }
 
 func UpdateTask(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	defer mu.Unlock()
+	id, err := path.ExtractTaskID(r)
+	if err != nil {
+		logger.Errorf("Error extracting task ID: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid task ID")
+		return
+	}
 
 	var updateFields types.Task
-
-	path := r.URL.Path
-	pathId := strings.Split(path, "/")
-
-	if len(pathId) < 4 {
-		logger2.Logger.Println("Error: Path params not found!!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+	if err := requestutil.DecodeJSON(r, &updateFields); err != nil {
+		logger.Errorf("Error decoding update fields: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid update data")
 		return
 	}
 
-	id, err := strconv.Atoi(pathId[3])
-	if err != nil {
-		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Params can't be empty"})
-		return
-	}
-
-	taskData, ok := tasks[id]
-	if !ok {
-		logger2.Logger.Println("Error: Task Id not found")
-		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
-		return
-	} else {
-		if tasks[id].OwnerId != updateFields.OwnerId {
-			logger2.Logger.Println("Error: Unauthorized")
-			response.WriteJson(w, http.StatusUnauthorized, map[string]string{"Error": "Unauthorized"})
+	// Verify ownership before updating
+	if err := taskRepo.VerifyOwner(id, updateFields.OwnerId); err != nil {
+		if err == repository.ErrUnauthorized {
+			logger.Warnf("Unauthorized access attempt for task ID %d by owner ID %d", id, updateFields.OwnerId)
+			response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err == repository.ErrTaskNotFound {
+			logger.Warnf("Task ID %d not found for update", id)
+			response.WriteError(w, http.StatusNotFound, "task not found")
 			return
 		}
 	}
 
-	bodyErr := json.NewDecoder(r.Body).Decode(&updateFields)
-	if bodyErr != nil {
-		logger2.Logger.Println("Update fields not found")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "😭 Update Fields Not Found"})
+	// Get existing task to preserve fields that aren't being updated
+	existingTask, _ := taskRepo.GetByID(id)
+
+	// Only update if new values are provided
+	if updateFields.Description == "" {
+		updateFields.Description = existingTask.Description
+	}
+	if !updateFields.IsCompleted {
+		updateFields.IsCompleted = existingTask.IsCompleted
+	}
+
+	updatedTask, err := taskRepo.Update(id, updateFields)
+	if err != nil {
+		logger.Errorf("Error updating task ID %d: %v", id, err)
+		response.WriteError(w, http.StatusInternalServerError, "failed to update task")
 		return
 	}
 
-	var description string
-	var isComplete bool
-
-	if updateFields.Description == "" {
-		description = taskData.Description
-	} else {
-		description = updateFields.Description
-	}
-
-	if updateFields.IsCompleted == false {
-		isComplete = taskData.IsCompleted
-	} else {
-		isComplete = updateFields.IsCompleted
-	}
-
-	tasks[id] = types.Task{
-		TaskId:      taskData.TaskId,
-		OwnerId:     taskData.OwnerId,
-		Description: description,
-		IsCompleted: isComplete,
-	}
-
-	logger2.Logger.Printf("Task With id %d Successfully Updated\n", taskData.TaskId)
-	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": tasks[id]})
+	logger.Infof("Task with ID %d successfully updated", updatedTask.TaskId)
+	response.WriteSuccessWithData(w, http.StatusOK, map[string]interface{}{"task": updatedTask})
 }
 
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	var deleteFields types.Task
-
-	err := json.NewDecoder(r.Body).Decode(&deleteFields)
-
+	id, err := path.ExtractTaskID(r)
 	if err != nil {
-		logger2.Logger.Println("Error: Empty data")
-		response.WriteJson(w, http.StatusBadRequest, map[string]any{"Error": "Empty Data"})
+		logger.Errorf("Error extracting task ID: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid task ID")
 		return
 	}
 
-	path := r.URL.Path
-	pathId := strings.Split(path, "/")
-
-	if len(pathId) < 4 {
-		logger2.Logger.Println("Error: Path params not found!!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+	var deleteRequest types.Task
+	if err := requestutil.DecodeJSON(r, &deleteRequest); err != nil {
+		logger.Errorf("Error decoding delete request: %v", err)
+		response.WriteError(w, http.StatusBadRequest, "invalid request data")
 		return
 	}
 
-	id, err := strconv.Atoi(pathId[3])
-	if err != nil {
-		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
-		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
-		return
-	}
-
-	_, ok := tasks[id]
-	if !ok {
-		logger2.Logger.Println("Error: Task Id not Found!!")
-		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
-		return
-	} else {
-		if tasks[id].OwnerId != deleteFields.OwnerId {
-			logger2.Logger.Println("Error: Unauthorized")
-			response.WriteJson(w, http.StatusUnauthorized, map[string]string{"Error": "Unauthorized"})
+	// Verify ownership before deleting
+	if err := taskRepo.VerifyOwner(id, deleteRequest.OwnerId); err != nil {
+		if err == repository.ErrUnauthorized {
+			logger.Warnf("Unauthorized delete attempt for task ID %d by owner ID %d", id, deleteRequest.OwnerId)
+			response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err == repository.ErrTaskNotFound {
+			logger.Warnf("Task ID %d not found for deletion", id)
+			response.WriteError(w, http.StatusNotFound, "task not found")
 			return
 		}
 	}
 
-	delete(tasks, id)
+	if err := taskRepo.Delete(id); err != nil {
+		if err == repository.ErrTaskNotFound {
+			logger.Warnf("Task ID %d not found for deletion", id)
+			response.WriteError(w, http.StatusNotFound, "task not found")
+			return
+		}
+		logger.Errorf("Error deleting task ID %d: %v", id, err)
+		response.WriteError(w, http.StatusInternalServerError, "failed to delete task")
+		return
+	}
 
-	logger2.Logger.Printf("Task with id %d deleted successfully\n", id)
-	deleteMsg := fmt.Sprintf("Task with Id %d deleted successfully", id)
-	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "message": deleteMsg})
+	logger.Infof("Task with ID %d deleted successfully", id)
+	response.WriteSuccess(w, http.StatusOK, fmt.Sprintf("Task with Id %d deleted successfully", id))
 }

@@ -1,0 +1,29 @@
+package request
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+
+	"github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
+)
+
+// DecodeJSON decodes JSON from request body into the provided struct
+// Returns an error if decoding fails or body is empty
+func DecodeJSON(r *http.Request, v interface{}) error {
+	if r.Body == nil {
+		return ErrEmptyBody
+	}
+
+	err := json.NewDecoder(r.Body).Decode(v)
+	if errors.Is(err, io.EOF) {
+		return ErrEmptyBody
+	}
+	if err != nil {
+		logger.Errorf("Error decoding JSON: %v", err)
+		return ErrInvalidJSON
+	}
+
+	return nil
+}
