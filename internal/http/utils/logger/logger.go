@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,12 +12,18 @@ var Logger *log.Logger
 
 // Init initializes the logger and creates a log file
 func Init() error {
+	// Create logs directory if it doesn't exist
+	logsDir := "logs"
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	logFilePath := filepath.Join("logs", "log_file_"+timestamp+".txt")
+	logFilePath := filepath.Join(logsDir, "log_file_"+timestamp+".txt")
 
 	f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open log file: %w", err)
 	}
 
 	Logger = log.New(f, "", log.LstdFlags|log.Lshortfile)
