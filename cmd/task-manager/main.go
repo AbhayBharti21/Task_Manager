@@ -22,6 +22,7 @@ func main() {
 
 	router.HandleFunc("POST /api/tasks", middleware.LogRequest(handlers.CreateTask))
 	router.HandleFunc("GET /api/tasks/", middleware.LogRequest(handlers.GetTask))
+	router.HandleFunc("PATCH /api/tasks/", middleware.LogRequest(handlers.UpdateTask))
 
 	server := http.Server{
 		Addr:    cfg.Addr,

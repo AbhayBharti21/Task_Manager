@@ -58,7 +58,7 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	logger2.Logger.Println(msg)
 	fmt.Println(tasks)
 
-	response.WriteJson(w, http.StatusCreated, map[string]string{"success": "OK", "message": msg})
+	response.WriteJson(w, http.StatusCreated, map[string]any{"success": true, "message": msg})
 
 	if !isOwnerId {
 		ownerInc++
@@ -90,5 +90,65 @@ func GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJson(w, http.StatusOK, map[string]any{"success": "OK", "task": taskData})
+	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": taskData})
+}
+
+func UpdateTask(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	var updateFields types.Task
+
+	path := r.URL.Path
+	pathId := strings.Split(path, "/")
+
+	if len(pathId) < 4 {
+		logger2.Logger.Println("Error: Path params not found!!")
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Path params not found!!"})
+	}
+
+	id, err := strconv.Atoi(pathId[3])
+	if err != nil {
+		logger2.Logger.Println("Error: Unable to Convert path id to int !!")
+
+	}
+
+	taskData, ok := tasks[id]
+	if !ok {
+		response.WriteJson(w, http.StatusNotFound, map[string]string{"Error": "Task Id not Found!!"})
+		if tasks[id].OwnerId != updateFields.OwnerId {
+			response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "Owner Id now found !!"})
+		}
+		return
+	}
+
+	bodyErr := json.NewDecoder(r.Body).Decode(&updateFields)
+	if bodyErr != nil {
+		response.WriteJson(w, http.StatusBadRequest, map[string]string{"Error": "😭 Update Fields Not Found"})
+	}
+
+	var description string
+	var isComplete bool
+
+	if updateFields.Description == "" {
+		description = taskData.Description
+	} else {
+		description = updateFields.Description
+	}
+
+	if updateFields.IsCompleted == false {
+		isComplete = taskData.IsCompleted
+	} else {
+		isComplete = updateFields.IsCompleted
+	}
+
+	tasks[id] = types.Task{
+		TaskId:      taskData.TaskId,
+		OwnerId:     taskData.OwnerId,
+		Description: description,
+		IsCompleted: isComplete,
+	}
+
+	logger2.Logger.Printf("Task With id %d Successfully Updated\n", taskData.TaskId)
+	response.WriteJson(w, http.StatusOK, map[string]any{"success": true, "task": tasks[id]})
 }
