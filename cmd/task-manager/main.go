@@ -1,56 +1,37 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"github.com/AbhayBharti21/task-manager/internal/config"
-	"log"
+	"github.com/AbhayBharti21/task-manager/internal/http/handlers"
+	logger2 "github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
 	cfg := config.MustLoad()
-
 	router := http.NewServeMux()
 
-	router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Welcome to task manager"))
-	})
+	err := logger2.Init()
+	if err != nil {
+		fmt.Println("unable to open logger")
+		return
+	}
+
+	router.HandleFunc("GET /api/tasks", handlers.CreateTask)
 
 	server := http.Server{
 		Addr:    cfg.Addr,
 		Handler: router,
 	}
 
-	slog.Info("Server started at PORT %s", cfg.HTTPServer.Addr)
+	slog.Info("Server started at", slog.String("PORT", cfg.HTTPServer.Addr))
+	logger2.Logger.Println()
 
-	done := make(chan os.Signal, 1)
-
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatal("Failed to start server")
-		}
-	}()
-
-	<-done
-
-	slog.Info("Shutting down the server")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	defer cancel()
-
-	err := server.Shutdown(ctx)
-	if err != nil {
-		slog.Error("Failed to shutdown server", slog.String("error", err.Error()))
+	serverErr := server.ListenAndServe()
+	if serverErr != nil {
+		logger2.Logger.Fatalf("Failed to start server %v", serverErr)
 	}
 
-	slog.Info("server shutdown successfully")
 }
