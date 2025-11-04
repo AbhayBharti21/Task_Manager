@@ -12,7 +12,6 @@ var (
 	ErrUnauthorized = errors.New("unauthorized: task owner mismatch")
 )
 
-// TaskRepository handles task storage operations
 type TaskRepository struct {
 	tasks    map[int]types.Task
 	ownerInc int
@@ -20,7 +19,6 @@ type TaskRepository struct {
 	mu       sync.RWMutex
 }
 
-// NewTaskRepository creates a new task repository instance
 func NewTaskRepository() *TaskRepository {
 	return &TaskRepository{
 		tasks:    make(map[int]types.Task),
@@ -29,7 +27,6 @@ func NewTaskRepository() *TaskRepository {
 	}
 }
 
-// Create creates a new task and returns it
 func (tr *TaskRepository) Create(task types.Task) types.Task {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
@@ -55,7 +52,6 @@ func (tr *TaskRepository) Create(task types.Task) types.Task {
 	return newTask
 }
 
-// GetByID retrieves a task by its ID
 func (tr *TaskRepository) GetByID(id int) (types.Task, error) {
 	tr.mu.RLock()
 	defer tr.mu.RUnlock()
@@ -68,7 +64,6 @@ func (tr *TaskRepository) GetByID(id int) (types.Task, error) {
 	return task, nil
 }
 
-// Update updates an existing task
 func (tr *TaskRepository) Update(id int, updates types.Task) (types.Task, error) {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
@@ -78,14 +73,10 @@ func (tr *TaskRepository) Update(id int, updates types.Task) (types.Task, error)
 		return types.Task{}, ErrTaskNotFound
 	}
 
-	// Update description if provided
 	if updates.Description != "" {
 		existing.Description = updates.Description
 	}
 
-	// Update completion status if provided (check if it's explicitly set to true)
-	// Note: This logic assumes false means "not provided" in updates
-	// You might want to use pointers or a different approach for optional fields
 	if updates.IsCompleted {
 		existing.IsCompleted = updates.IsCompleted
 	}
@@ -94,7 +85,6 @@ func (tr *TaskRepository) Update(id int, updates types.Task) (types.Task, error)
 	return existing, nil
 }
 
-// Delete removes a task by its ID
 func (tr *TaskRepository) Delete(id int) error {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
@@ -107,7 +97,6 @@ func (tr *TaskRepository) Delete(id int) error {
 	return nil
 }
 
-// VerifyOwner checks if the given owner ID matches the task's owner
 func (tr *TaskRepository) VerifyOwner(taskID int, ownerID int) error {
 	tr.mu.RLock()
 	defer tr.mu.RUnlock()

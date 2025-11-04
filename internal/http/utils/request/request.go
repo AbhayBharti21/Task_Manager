@@ -9,8 +9,6 @@ import (
 	"github.com/AbhayBharti21/task-manager/internal/http/utils/logger"
 )
 
-// DecodeJSON decodes JSON from request body into the provided struct
-// Returns an error if decoding fails or body is empty
 func DecodeJSON(r *http.Request, v interface{}) error {
 	if r.Body == nil {
 		return ErrEmptyBody

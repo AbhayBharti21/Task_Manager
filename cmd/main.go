@@ -21,7 +21,6 @@ func main() {
 
 	logger.Infof("Server starting on port %s", defaultPort)
 	fmt.Printf("🚀 Server starting on port %s\n", defaultPort)
-	fmt.Printf("📝 Server logs are being written to logs/ directory\n")
 
 	if err := http.ListenAndServe(defaultPort, router); err != nil {
 		fmt.Printf("❌ Failed to start server: %v\n", err)
