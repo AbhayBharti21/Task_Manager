@@ -22,20 +22,24 @@ func init() {
 func CreateTask(w http.ResponseWriter, r *http.Request) {
 	var task types.Task
 
-	if err := requestutil.DecodeJSON(r, &task); err != nil {
+	validator := func() error {
+		return validation.ValidateCreateTaskBody(task)
+	}
+
+	if err := requestutil.ValidateRequestBody(r, &task, validator); err != nil {
 		if err == requestutil.ErrEmptyBody {
 			logger.Error("Empty request body")
 			response.WriteError(w, http.StatusBadRequest, "empty body")
 			return
 		}
-		logger.Errorf("Error decoding JSON: %v", err)
-		response.WriteError(w, http.StatusBadRequest, "invalid JSON format")
-		return
-	}
-
-	if err := validation.ValidateTaskCreation(task.Description); err != nil {
+		if err == requestutil.ErrInvalidJSON {
+			logger.Errorf("Error decoding JSON: %v", err)
+			response.WriteError(w, http.StatusBadRequest, "invalid JSON format")
+			return
+		}
+		// Validation error
 		logger.Errorf("Validation error: %v", err)
-		response.WriteError(w, http.StatusBadRequest, "description is required")
+		response.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -82,9 +86,24 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var updateFields types.Task
-	if err := requestutil.DecodeJSON(r, &updateFields); err != nil {
-		logger.Errorf("Error decoding update fields: %v", err)
-		response.WriteError(w, http.StatusBadRequest, "invalid update data")
+	validator := func() error {
+		return validation.ValidateUpdateTaskBody(updateFields)
+	}
+
+	if err := requestutil.ValidateRequestBody(r, &updateFields, validator); err != nil {
+		if err == requestutil.ErrEmptyBody {
+			logger.Error("Empty request body")
+			response.WriteError(w, http.StatusBadRequest, "empty body")
+			return
+		}
+		if err == requestutil.ErrInvalidJSON {
+			logger.Errorf("Error decoding update fields: %v", err)
+			response.WriteError(w, http.StatusBadRequest, "invalid JSON format")
+			return
+		}
+		// Validation error
+		logger.Errorf("Validation error: %v", err)
+		response.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -133,9 +152,24 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var deleteRequest types.Task
-	if err := requestutil.DecodeJSON(r, &deleteRequest); err != nil {
-		logger.Errorf("Error decoding delete request: %v", err)
-		response.WriteError(w, http.StatusBadRequest, "invalid request data")
+	validator := func() error {
+		return validation.ValidateDeleteTaskBody(deleteRequest)
+	}
+
+	if err := requestutil.ValidateRequestBody(r, &deleteRequest, validator); err != nil {
+		if err == requestutil.ErrEmptyBody {
+			logger.Error("Empty request body")
+			response.WriteError(w, http.StatusBadRequest, "empty body")
+			return
+		}
+		if err == requestutil.ErrInvalidJSON {
+			logger.Errorf("Error decoding delete request: %v", err)
+			response.WriteError(w, http.StatusBadRequest, "invalid JSON format")
+			return
+		}
+		// Validation error
+		logger.Errorf("Validation error: %v", err)
+		response.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

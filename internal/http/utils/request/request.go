@@ -25,3 +25,17 @@ func DecodeJSON(r *http.Request, v interface{}) error {
 
 	return nil
 }
+
+func ValidateRequestBody(r *http.Request, v interface{}, validator func() error) error {
+	if err := DecodeJSON(r, v); err != nil {
+		return err
+	}
+
+	if validator != nil {
+		if err := validator(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
