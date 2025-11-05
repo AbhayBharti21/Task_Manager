@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-manager
+  namespace: test-ns
+  annotations:
+    janitor/ttl: "72h"
+  labels:
+    devstack_label: "abhay-pod"
+spec:
+  selector:
+    matchLabels:
+      app: task-manager
+  template:
+    metadata:
+      labels:
+        app: task-manager
+        devstack_label: "abhay-pod"
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: task-manager
+          image: abhaybharti21/task-manager:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-manager
+  namespace: test-ns
+  annotations:
+    janitor/ttl: "72h"
+  labels:
+    devstack_label: "abhay-pod"
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: task-manager
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: task-manager
+  namespace: test-ns
+  annotations:
+    kubernetes.io/ingress.class: traefik-concierge
+    janitor/ttl: "72h"
+  labels:
+    devstack_label: "abhay-pod"
+spec:
+  entryPoints:
+    - http
+  routes:
+    - kind: Rule
+      match: Host(`abhay-pod.dev.razorpay.in`)
+      services:
+        - name: task-manager
+          port: 8080
+    - kind: Rule
+      match: Host(`abhay-pod.dev.razorpay.in`) && Headers(`rzpctx-dev-serve-user`, `abhay-pod`)
+      services:
+        - name: todo-service
+          port: 8080

@@ -32,10 +32,10 @@ func setupRoutes() *http.ServeMux {
 	router := http.NewServeMux()
 
 	// Register all routes with logging middleware
-	router.HandleFunc("POST /api/tasks", middleware.LogRequest(handlers.CreateTask))
+	router.HandleFunc("POST /api/tasks/create", middleware.LogRequest(handlers.CreateTask))
 	router.HandleFunc("GET /api/tasks/", middleware.LogRequest(handlers.GetTask))
-	router.HandleFunc("PATCH /api/tasks/", middleware.LogRequest(handlers.UpdateTask))
-	router.HandleFunc("DELETE /api/tasks/", middleware.LogRequest(handlers.DeleteTask))
+	router.HandleFunc("PATCH /api/tasks/update/", middleware.LogRequest(handlers.UpdateTask))
+	router.HandleFunc("DELETE /api/tasks/delete/", middleware.LogRequest(handlers.DeleteTask))
 	router.HandleFunc("GET /api/health", middleware.LogRequest(handlers.HealthStatus))
 
 	return router

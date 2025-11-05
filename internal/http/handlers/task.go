@@ -78,7 +78,7 @@ func GetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateTask(w http.ResponseWriter, r *http.Request) {
-	id, err := path.ExtractTaskID(r)
+	id, err := path.ExtractTaskIDFromUpdatePath(r)
 	if err != nil {
 		logger.Errorf("Error extracting task ID: %v", err)
 		response.WriteError(w, http.StatusBadRequest, "invalid task ID")
@@ -144,7 +144,7 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
-	id, err := path.ExtractTaskID(r)
+	id, err := path.ExtractTaskIDFromDeletePath(r)
 	if err != nil {
 		logger.Errorf("Error extracting task ID: %v", err)
 		response.WriteError(w, http.StatusBadRequest, "invalid task ID")
