@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -24,7 +25,8 @@ func Init() error {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
 
-	Logger = log.New(f, "", log.LstdFlags|log.Lshortfile)
+	multiWriter := io.MultiWriter(os.Stdout, f)
+	Logger = log.New(multiWriter, "", log.LstdFlags|log.Lshortfile)
 	Println("Logger initialized")
 	return nil
 }

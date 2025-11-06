@@ -23,7 +23,8 @@ func ExtractID(r *http.Request, segmentIndex int) (int, error) {
 }
 
 func ExtractTaskID(r *http.Request) (int, error) {
-	return ExtractID(r, 2)
+	// For path like /api/tasks/get/123, we want segment index 3 (0-indexed: api, tasks, get, 123)
+	return ExtractID(r, 3)
 }
 
 func ExtractTaskIDFromUpdatePath(r *http.Request) (int, error) {

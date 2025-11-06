@@ -8,7 +8,7 @@ import (
 
 func LogRequest(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Debugf("Request: %s %s %s", r.RemoteAddr, r.Method, r.URL)
+		logger.Infof("Request: %s %s %s", r.Method, r.URL.Path, r.RemoteAddr)
 		next(w, r)
 	}
 }
